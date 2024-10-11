@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+    <link rel="stylesheet" href="weather.css">
+</head>
+<body> 
+    <div class="card">
+        <div class="search">
+            <input type="text" placeholder="Enter city name" spellcheck="false" id="city-input">
+            <button id="search-button"><img src="../image/search.png" alt="search"></button>
+            <ul id="suggestions" class="suggestions-list"></ul>
+        </div>
+        <div class="error" style="display: none;">
+            <p>Invalid city name</p>
+        </div>
+        <div class="weather" style="display: none;">
+            <img src="../image/weather.png" class="weather-icon" alt="weather icon">
+            <h1 class="temp">22°c</h1>
+            <h2 class="city">Mumbai</h2>
+            <div class="details">
+                <div class="col">
+                    <img src="../image/humidity.png" alt="humidity icon">
+                    <p class="humidity">50%</p>
+                    <p>humidity</p>
+                </div>
+                <div class="col">
+                    <img src="../image/wind.png" alt="wind icon">
+                    <p class="wind">50 km/h</p>
+                    <p>wind speed</p>
+                </div>
+            </div>
+            <div class="days-forecast">
+                <h2>6-day Forecast</h2>
+                <ul class="weather-cards"></ul>
+            </div>
+        </div>
+    </div>
+    <script>
+        const apiKey = "9b4a044982486467ddf38a5906fd569c";
+        const apiUrl = "https://api.openweathermap.org/data/2.5/weather?units=metric&q=";
+        const forecastUrl = "https://api.openweathermap.org/data/2.5/forecast?units=metric&q=";
+        const geoApiUrl = "http://api.openweathermap.org/geo/1.0/direct?q=";
+
+        const searchBox = document.getElementById("city-input");
+        const searchBtn = document.getElementById("search-button"); 
+        const suggestionsList = document.getElementById("suggestions");
+        const weatherIcon = document.querySelector(".weather-icon");
+        const weatherCards = document.querySelector(".weather-cards");
+
+        async function checkWeather(city) {
+            const response = await fetch(`${apiUrl}${city}&appid=${apiKey}`);
+            if (response.status === 404) {
+                document.querySelector(".error").style.display = "block";
+                document.querySelector(".weather").style.display = "none";
+            } else {
+                const data = await response.json();
+
+                document.querySelector(".city").innerHTML = data.name;
+                document.querySelector(".temp").innerHTML = Math.round(data.main.temp) + "°c";
+                document.querySelector(".humidity").innerHTML = data.main.humidity + "%";
+                document.querySelector(".wind").innerHTML = data.wind.speed + " km/h";
+
+                if (data.weather[0].main.toLowerCase() === "clouds") {
+                    weatherIcon.src = "../image/cloud.png";
+                } else if (data.weather[0].main.toLowerCase() === "clear") {
+                    weatherIcon.src = "../image/clear.png";
+                } else if (data.weather[0].main.toLowerCase() === "rain") {
+                    weatherIcon.src = "../image/rain.png";
+                } else if (data.weather[0].main.toLowerCase() === "drizzle") {
+                    weatherIcon.src = "../image/drizzle.png";
+                } else if (data.weather[0].main.toLowerCase() === "mist") {
+                    weatherIcon.src = "../image/mist.png";
+                }
+
+                document.querySelector(".weather").style.display = "block";
+                document.querySelector(".error").style.display = "none";
+
+                checkForecast(city);
+            }
+        }
+
+        async function checkForecast(city) {
+            const response = await fetch(`${forecastUrl}${city}&appid=${apiKey}`);
+            const data = await response.json();
+
+            const uniqueForecastDays = [];
+            const forecastDays = data.list.filter(forecast => {
+                const forecastDate = new Date(forecast.dt_txt).getDate();
+                if (!uniqueForecastDays.includes(forecastDate)) {
+                    uniqueForecastDays.push(forecastDate);
+                    return true;
+                }
+                return false;
+            });
+
+            weatherCards.innerHTML = ""; 
+            forecastDays.slice(0, 6).forEach(weatherItem => {
+                const weatherCard = createWeatherCard(weatherItem);
+                weatherCards.appendChild(weatherCard);
+            });
+        }
+
+        function createWeatherCard(weatherItem) {
+            const card = document.createElement("li");
+            card.classList.add("card");
+
+            card.innerHTML = `
+                <h3>${new Date(weatherItem.dt_txt).toLocaleDateString()}</h3>
+                <img src="https://openweathermap.org/img/wn/${weatherItem.weather[0].icon}.png" alt="Weather icon">
+                <h4>Temp: ${Math.round(weatherItem.main.temp)}°c</h4>
+                <h4>Humidity: ${weatherItem.main.humidity}%</h4>
+                <h4>Wind: ${weatherItem.wind.speed} m/s</h4>
+            `;
+
+            return card;
+        }
+
+        async function fetchSuggestions(query) {
+            if (!query) {
+                suggestionsList.innerHTML = "";
+                return;
+            }
+
+            const response = await fetch(`${geoApiUrl}${query}&limit=5&appid=${apiKey}`);
+            const data = await response.json();
+            suggestionsList.innerHTML = data.map(city => `<li>${city.name}, ${city.country}</li>`).join("");
+        }
+
+        searchBox.addEventListener("input", () => {
+            fetchSuggestions(searchBox.value);
+        });
+
+        suggestionsList.addEventListener("click", (e) => {
+            if (e.target.tagName === "LI") {
+                searchBox.value = e.target.textContent;
+                suggestionsList.innerHTML = "";
+                checkWeather(searchBox.value.split(",")[0]);
+            }
+        });
+
+        searchBtn.addEventListener("click", () => {
+            checkWeather(searchBox.value.split(",")[0]);
+        });
+    </script>
+</body>
+</html>
